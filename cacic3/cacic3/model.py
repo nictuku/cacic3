@@ -60,7 +60,7 @@ class Network(object):
     pass
 assign_mapper(session.context, Network, redes,
               properties = {
-        'ipaddr': redes.c.id_ip_rede,
+        'netaddr': redes.c.id_ip_rede,
         'name': redes.c.nm_rede,
         }
               )
@@ -79,7 +79,7 @@ class Computer(object):
     pass
 assign_mapper(session.context, Computer, computers_table,
               properties = { 
-        'ipaddr': computers_table.c.id_ip_rede,
+        'netaddr': computers_table.c.id_ip_rede,
         'network': relation(Network, foreignkey = computers_table.c.id_ip_rede,
                             primaryjoin=redes.c.id_ip_rede == computers_table.c.id_ip_rede)
         }

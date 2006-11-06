@@ -37,9 +37,12 @@ class Reports(object):
     def display(self, category, **kw):
         report_tables = []
 
+        # get selected networks
+        networks = kw['Networks']
+
         fields = kw['Report Items']
         if category == 'hardware':
-            items = Computer.select ()
+            items = Computer.select (Computer.c.netaddr.in_(networks))
             # force conversion to str, since there is a check with isinstance,
             # and we don't want to have field names be something other than
             # ASCII anyway
@@ -54,7 +57,7 @@ class Reports(object):
 
     def _get_network_items(self, action):
         items = NetworkActions.select (NetworkActions.c.action == action)
-        return [(x.network.ipaddr, x.network.name) for x in items]
+        return [(x.network.netaddr, x.network.name) for x in items]
 
     def _get_action_from_category(self, category):
         if category == 'hardware':

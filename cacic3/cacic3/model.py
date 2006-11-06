@@ -44,7 +44,7 @@ patrimonio_config_interface = Table('patrimonio_config_interface', local_metadat
 perfis_aplicativos_monitorados = Table('perfis_aplicativos_monitorados', local_metadata, autoload=True)
 redes = Table('redes', local_metadata, autoload=True)
 redes_versoes_modulos = Table('redes_versoes_modulos', local_metadata, autoload=True)
-so = Table('so', local_metadata, autoload=True)
+opsys_table = Table('so', local_metadata, autoload=True)
 softwares_inventariados = Table('softwares_inventariados', local_metadata, autoload=True)
 softwares_inventariados_estacoes = Table('softwares_inventariados_estacoes', local_metadata, autoload=True)
 tipos_unidades_disco = Table('tipos_unidades_disco', local_metadata, autoload=True)
@@ -75,11 +75,27 @@ assign_mapper(session.context, NetworkActions, acoes_redes,
         }
               )
 
+class OpSys(object):
+    pass
+assign_mapper(session.context, OpSys, opsys_table,
+              properties = { 
+        'id': opsys_table.c.id_so,
+        'name': opsys_table.c.sg_so,
+        'full_name': opsys_table.c.te_desc_so,
+        }
+              )
+
 class Computer(object):
     pass
 assign_mapper(session.context, Computer, computers_table,
               properties = { 
+        'name': computers_table.c.te_nome_computador,
+        'ipaddr': computers_table.c.te_ip,
+        'node_addr': computers_table.c.te_node_address,
         'netaddr': computers_table.c.id_ip_rede,
+        'os_id': computers_table.c.id_so,
+        'opsys': relation(OpSys, foreignkey = computers_table.c.id_so,
+                       primaryjoin = opsys_table.c.id_so == computers_table.c.id_so),
         'network': relation(Network, foreignkey = computers_table.c.id_ip_rede,
                             primaryjoin=redes.c.id_ip_rede == computers_table.c.id_ip_rede)
         }

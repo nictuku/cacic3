@@ -13,7 +13,7 @@ from turbogears.widgets import TableForm, CheckBoxList, DataGrid
 
 from cacic3 import json
 from cacic3 import model 
-from cacic3.model import Computer, Hardware, Network, NetworkActions
+from cacic3.model import Computer, Hardware, Network, NetworkActions, OpSys
 
 from IPy import IP
 
@@ -38,11 +38,28 @@ class Reports(object):
         report_tables = []
 
         # get selected networks
-        networks = kw['Networks']
+        networks = kw.get('Networks', None)
+        os_ids = kw.get('Operating Systems', None)
 
-        fields = kw['Report Items']
+        # if none was selected, get all; there's probably a better way of handling
+        # this, by conditionally adding where clauses to the reports selects
+        if not networks:
+            action = self._get_action_from_category(category)
+            networks = [x[0] for x in self._get_network_items(action)]
+
+        if not os_ids:
+            os_ids = [x[0] for x in self._get_os_items()]
+
+        fields = self._get_mandatory_fields () + kw['Report Items']
         if category == 'hardware':
-            items = Computer.select (Computer.c.netaddr.in_(networks))
+            items = Computer.select (apply(Computer.c.netaddr.in_, networks))
+            items = [item for item in items if str(item.os_id) in os_ids]
+            count = 1
+            for item in items:
+                item.index = count
+                item.os_name = item.opsys.name
+                count += 1
+            del count
             # force conversion to str, since there is a check with isinstance,
             # and we don't want to have field names be something other than
             # ASCII anyway
@@ -51,13 +68,28 @@ class Reports(object):
             report_tables.append ((grid, items))
         return dict(report_tables = report_tables)
 
+    def _get_mandatory_fields(self):
+        return ['index', 'name', 'ipaddr', 'os_name']
+
     def _get_hardware_items(self):
         items = Hardware.select(order_by=Hardware.c.description)
         return [(x.field_name, x.description) for x in items]
 
+    # FIXME: need to figure out what this is all about
+    def _get_network_situation(self):
+        return 'T'
+
     def _get_network_items(self, action):
-        items = NetworkActions.select (NetworkActions.c.action == action)
-        return [(x.network.netaddr, x.network.name) for x in items]
+        if self._get_network_situation () == 'T':
+            items = [(x.netaddr, x.name) for x in Network.select ()]
+        else:
+            items = NetworkActions.select (NetworkActions.c.action == action)
+            items = [(x.network.netaddr, x.network.name) for x in items]
+        return items
+
+    def _get_os_items(self):
+        items = OpSys.select (OpSys.c.id > 0)
+        return [(str(x.id), str(x.full_name)) for x in items]
 
     def _get_action_from_category(self, category):
         if category == 'hardware':
@@ -95,7 +127,12 @@ class Reports(object):
         items = self._get_network_items(action)
         widgets.append(CheckBoxList('Networks',
                                     options=items,
-                                    validators=Int()))
+                                    validator=Int()))
+
+        items = self._get_os_items()
+        widgets.append(CheckBoxList('Operating Systems',
+                                    options=items,
+                                    validator=Int()))
 
         tform = TableForm ("report_form", fields = widgets,
                            action = '/reports/display/%s' % (category),

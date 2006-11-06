@@ -1,0 +1,2 @@
+[turbogears.identity.provider]
+cacic = cacic3.idprovider:CacicIdentityProvider

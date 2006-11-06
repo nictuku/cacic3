@@ -1,0 +1,2 @@
+db_module=cacic3.model
+history_dir=$base/cacic3/sqlobject-history

@@ -14,6 +14,7 @@ from turbogears.widgets import TableForm, CheckBoxList, DataGrid
 from cacic3 import json
 from cacic3 import model 
 from cacic3.model import Computer, Hardware, Network, NetworkActions, OpSys
+from cacic3.model import computers_table, descricao_hardware, select, func
 
 from cacic3.widgets import AjaxMultiSelect
 
@@ -68,7 +69,42 @@ class Reports(object):
             fields = [(field.title(), str(field.strip())) for field in fields]
             grid = DataGrid (fields = fields)
             report_tables.append ((grid, items))
+
+        if kw.has_key ('Statistics Items'):
+            report_tables += self._get_statistics_tables (kw['Statistics Items'],
+                                                          networks, os_ids)
+
         return dict(report_tables = report_tables)
+
+    def _get_statistics_tables(self, fields, networks, os_ids):
+        statistics_tables = []
+
+        def _get_item_name (item):
+            return item[1]
+
+        def _get_item_percentage (item):
+            log.debug ('ITEM: ' + str(item[0]))
+            log.debug('TOTAL: ' + str(total))
+            return item[0] * float(100) / total
+
+        for field in fields:
+            computer_field = eval ('computers_table.c.%s' % (field))
+            # get total number of rows
+            result = select ([func.count (computer_field)],
+                             (descricao_hardware.c.nm_campo_tab_hardware == field)).execute ()
+            total = result.fetchone ()[0]
+            log.debug ('TOTAL_ANTES: ' + str(total))
+
+            result = select ([func.count (computer_field),
+                              computer_field, descricao_hardware],
+                             (descricao_hardware.c.nm_campo_tab_hardware == field),
+                             group_by = [computer_field]).execute ()
+            grid = DataGrid (fields = 
+                             [ ('Item', _get_item_name),
+                               ('Percentagem', _get_item_percentage) ])
+            items = result.fetchall ()
+            statistics_tables.append ((grid, items))
+        return statistics_tables
 
     def _get_mandatory_fields(self):
         return ['index', 'name', 'ipaddr', 'os_name']

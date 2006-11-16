@@ -15,6 +15,8 @@ from cacic3 import json
 from cacic3 import model 
 from cacic3.model import Computer, Hardware, Network, NetworkActions, OpSys
 
+from cacic3.widgets import AjaxMultiSelect
+
 from IPy import IP
 
 # doesn't work
@@ -147,6 +149,11 @@ class Root(controllers.RootController):
     def index(self):
         computers = model.db.computers.select()
         return dict(computers=computers)
+
+    @expose (template="cacic3.templates.test_widgets")
+    def test_widgets(self):
+        w = AjaxMultiSelect ('caraio')
+        return dict(w = w)
 
     @expose(template="cacic3.templates.buildreport")
     def buildreport(self, category=None):

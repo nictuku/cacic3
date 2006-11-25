@@ -202,10 +202,12 @@ class Cacic2:
         # AUTH_PW=='PW_CACIC'
 
         self.ret_ok = '<?xml version="1.0" encoding="iso-8859-1" ?><STATUS>OK</STATUS>'
+        self.set_machine = self._format_set_machine(kw)
 
         if operation == 'get_config.php':
             if kw.get('in_chkcacic', '') == 'chkcacic':
                 # STEP 1: get_config.php
+                # transmite as configurações do servidor de updates (FTP)
                 log.debug("STEP 1 running")
                 remote_ip = cherrypy.request.remote_addr
                 # pick a config for this client
@@ -226,14 +228,25 @@ class Cacic2:
                     return ret
                 # CACIC2 would also include a partial computer account in the
                 # database. For the sake of simplicity, I'll wait until step2.
+            elif kw.get('te_node_address', False):
+                # STEP 3: get_config.php(2)
+                # Esse é o getconfig propriamente dito. O servidor enviará
+                # as configurações a serem feitas no agente
+                need_these = ['te_node_address', 'id_so', 'id_ip_rede', 
+                    'te_nome_computador', 'te_ip', 'te_versao_cacic']
+                for i in need_these:
+                    if not kw.has_key(i):
+                        log.debug("Faltou '%s' na solicitação do cliente", i)
+                        return "Cliente nao enviou item '" + i + "'"
+                # Como se faz no original, criar o cliente se necessário
+                if self._update.computer(self.set_machine, insert_only=True):
+                    return self.ret_ok
             else:
                 return "Error: get_config requires a parameters"
         elif operation == 'set_tcp_ip.php':
             # STEP 2: set_tcp_ip.php
             log.debug("STEP 2 running")
-            set_machine = self._format_set_machine(kw)
-            
-            if self._update_computer(set_machine):
+            if self._update_computer(self.set_machine):
                 return self.ret_ok
             else:
                 return "Erro ao atualizar computador no banco" 
@@ -271,17 +284,18 @@ class Cacic2:
             log.warn("Configuracao padrão não encontrada")
             raise Exception, "No matching subnet found"
 
-    def _update_computer(self, set_machine):
+    def _update_computer(self, set_machine, insert_only=False):
         """Updates the computer info in the database.
         Creates a new computer entry if needed.
         """
+        # limpa valores desnecessários
         try:
             computers_table.insert(computers_table.c.te_node_address==set_machine['te_node_address']
                 ).execute(set_machine)
         except:
             pass
-        computers_table.update(computers_table.c.te_node_address==set_machine['te_node_address']).execute(set_machine)
-        log.debug("ihuuu %s", repr(set_machine))
+        if not insert_only:
+            computers_table.update(computers_table.c.te_node_address==set_machine['te_node_address']).execute(set_machine)
         return True
 
     def _format_set_machine(self, kw):

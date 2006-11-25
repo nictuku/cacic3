@@ -1,4 +1,7 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 import logging
+from IPy import IP
 
 import cherrypy
 
@@ -15,10 +18,8 @@ from cacic3 import json
 from cacic3 import model 
 from cacic3.model import Computer, Hardware, Network, NetworkActions, OpSys
 from cacic3.model import computers_table, descricao_hardware, select, func
-
+from cacic3.model import redes 
 from cacic3.widgets import AjaxMultiSelect
-
-from IPy import IP
 
 # doesn't work
 # from turbogears.toolbox.catwalk import CatWalk
@@ -178,12 +179,130 @@ class Reports(object):
         return dict(tform=tform, provides_statistics = provides_statistics,
                     tg_template='cacic3.templates.buildreport')
 
-class Root(controllers.RootController):
+class Cacic2:
+    @expose()
+    def cacic2(self, ws, operation, **kw):
+        """Access interface to legacy agents. 
+        This method is used by v2 agents and is supposed to do exactly
+        what the original server does.
+        """
+        if not ws == 'ws':
+            cherrypy.response.status = 403
+            msg = "Error: expecting ws, got %s." % ws
+        msg = self.old_ws(operation, kw)
+        return msg
+
+    def old_ws(self, operation, kw):
+        """Implements http://cetico.org/cacic/comunicacao_agente-gerente
+        """
+        # should we check auth? I think it's useless since it's hard
+        # coded in the agent. Anywait, the legacy tests are:
+        # HTTP_USER_AGENT=='AGENTE_CACIC'
+        # AUTH_USER=='USER_CACIC'
+        # AUTH_PW=='PW_CACIC'
+
+        self.ret_ok = '<?xml version="1.0" encoding="iso-8859-1" ?><STATUS>OK</STATUS>'
+
+        if operation == 'get_config.php':
+            if kw.get('in_chkcacic', '') == 'chkcacic':
+                # STEP 1: get_config.php
+                log.debug("STEP 1 running")
+                remote_ip = cherrypy.request.remote_addr
+                # pick a config for this client
+                try:
+                    r_config = self._get_subnet_config(remote_ip)
+                except Exception, e:
+                    log.error("Erro ao buscar config para esse cliente %s", e)
+                    return 
+                else:
+                    ret = self.ret_ok
+                    for c in redes.columns:
+                        k = str(c.key)
+                        ret += '<' + k.upper() + '>' 
+                        # uai, sempre achei nao precisaria do str() aqui   
+                        ret += str(getattr(r_config, k, '')) 
+                        ret += '</' + k.upper() + '>' 
+                    log.debug("ret: %s" % ret)
+                    return ret
+                # CACIC2 would also include a partial computer account in the
+                # database. For the sake of simplicity, I'll wait until step2.
+            else:
+                return "Error: get_config requires a parameters"
+        elif operation == 'set_tcp_ip.php':
+            # STEP 2: set_tcp_ip.php
+            log.debug("STEP 2 running")
+            set_machine = self._format_set_machine(kw)
+            
+            if self._update_computer(set_machine):
+                return self.ret_ok
+            else:
+                return "Erro ao atualizar computador no banco" 
+        else:
+            return "Operação inválida especificada no POST"
+
+    def _get_subnet_config(self,remote_ip):
+        """Get the config to be used for the remote client
+        """
+        nets = redes.select().execute()
+        for net in nets:
+            # is the remote IP in the subnet for this config entry?
+            subnet = net.id_ip_rede + '/' + net.te_mascara_rede
+            log.debug("Testing subnet match: %s - %s" % 
+                (str(remote_ip), str(subnet)))
+            try:
+                i = IP(subnet)
+            except ValueError:
+                log.error("Rede '%s' inválida", subnet)
+                continue
+            if remote_ip in i:
+                log.debug("Remote client matches %s subnet." % subnet)
+                return net
+        # Nao ha uma config especifica para essa rede. Tentando
+        # configuracao padrao
+        log.info("Config especifica para esse cliente nao foi encontrada.")
+        c = redes.select(model.and_(
+            model.configs_table.c.te_serv_updates_padrao==\
+                redes.c.te_serv_updates)).alias().select().execute()
+        net = c.fetchone()
+        if net:
+            log.info("Utilizando configuração padrão")
+            return net
+        else:
+            log.warn("Configuracao padrão não encontrada")
+            raise Exception, "No matching subnet found"
+
+    def _update_computer(self, set_machine):
+        """Updates the computer info in the database.
+        Creates a new computer entry if needed.
+        """
+        try:
+            computers_table.insert(computers_table.c.te_node_address==set_machine['te_node_address']
+                ).execute(set_machine)
+        except:
+            pass
+        computers_table.update(computers_table.c.te_node_address==set_machine['te_node_address']).execute(set_machine)
+        log.debug("ihuuu %s", repr(set_machine))
+        return True
+
+    def _format_set_machine(self, kw):
+        """Get POST arguments from the request and accept only those 
+        values used in the 'computadores' table.
+        """
+        set_list = [c.key for c in computers_table.columns]
+        set_machine = {}
+        for s in set_list:
+            set_machine[s] = kw.get(s, '')
+        return set_machine
+
+# FIXME: cherrypy.tree.mount(Cacic2(),"/cacic2")
+# herdar o Cacic2 aqui é feio.
+
+class Root(controllers.RootController, Cacic2):
     reports = Reports ()
 
     @expose(template="cacic3.templates.index")
     def index(self):
-        computers = model.db.computers.select()
+        computers = model.computers_table.select()
         return dict(computers=computers)
 
     @expose (template="cacic3.templates.test_widgets")
@@ -244,91 +363,4 @@ class Root(controllers.RootController):
         identity.current.logout()
         raise redirect("/")
 
-# class Cacic2:
-    @expose()
-    def cacic2(self, ws, operation, **kw):
-        """Access interface to legacy agents. 
-        This method is used by v2 agents and is supposed to do exactly
-        what the original server does.
-        """
-        if not ws == 'ws':
-            cherrypy.response.status = 403
-            msg = "Error: expecting ws, got %s." % ws
-        msg = self.old_ws(operation, kw)
-        return dict(message=msg)
 
-    def old_ws(self, operation, kw):
-        """Implements http://cetico.org/cacic/comunicacao_agente-gerente
-        """
-        # should we check auth? I think it's useless since it's hard
-        # coded in the agent. Anywait, the legacy tests are:
-        # HTTP_USER_AGENT=='AGENTE_CACIC'
-        # AUTH_USER=='USER_CACIC'
-        # AUTH_PW=='PW_CACIC'
-
-        db = model.new_metadata
-        if operation == 'get_config.php':
-            if kw.get('in_chkcacic', '') == 'chkcacic':
-                # STEP 1: get_config.php
-                log.debug("STEP 1 running")
-                remote_ip = cherrypy.request.remote_addr
-                nets = db.redes.select()
-                # pick a config for this client
-                try:
-                    r_config = self._get_subnet_config(remote_ip, nets)
-                except:
-                    log.info("No subnet config found for this client")
-                    # FIXME: else, get standard config if set
-                    # nets = db.redes.select(model.and_(
-                    # db.configuracoes.c.te_serv_updates_padrao==\
-                    # db.redes.c.te_serv_updates)).select()
-                    return
-                else:
-                    ret = '<?xml version="1.0" encoding="iso-8859-1" ?>\
-<STATUS>OK</STATUS><CONFIGS>'
-                    for c in model.new_metadata.redes.columns:
-                        k = c.key
-                        ret += '<' + str(k).upper() + '>' + getattr(r_config, k, '') + \
-                            '</' + k.upper() + '>' 
-                    log.debug("ret: %s" % ret)
-                    return ret
-                # CACIC2 would also include a partial computer account in the
-                # database. For the sake of simplicity, I'll wait until step2.
-            else:
-                msg = "Error: get_config requires a parameters"
-        elif operation == 'set_tcp_ip.php':
-            # STEP 2: set_tcp_ip.php
-            log.debug("STEP 2 running")
-            # Get POST arguments from the request and accept only those 
-            # values used in the 'computadores' table.
-            set_list = [c.key for c in db.computadores.columns]
-            set_machine = {}
-            for s in set_list:
-                set_machine[s] = kw.get(s, '')
-            # FIXME: this is doing nothing
-            self._update_computer(set_machine)
-            # TODO: instead of returning this, we should add/update the computer in the database
-            return repr(set_machine)
-        else:
-            msg = "Error: invalid operation found"
-        return msg
-
-    def _get_subnet_config(self,remote_ip, nets):
-        """Get the config to be used for the remote client
-        """
-        for net in nets:
-            # is the remote IP in the subnet for this config entry?
-            subnet = net.id_ip_rede + '/' + net.te_mascara_rede
-            log.debug("Testing subnet match: %s - %s" % (remote_ip, subnet))
-            if remote_ip in IP(subnet):
-                log.debug("Remote client matches %s subnet." % subnet)
-                return net
-        raise Exception, "No matching subnet found"
-
-    def _update_computer(self, set_machine):
-        """Updates the computer info in the database.
-        Creates a new computer entry if needed.
-        """
-        pass
-
-# FIXME: cherrypy.tree.mount(Cacic2(),"/cacic2")

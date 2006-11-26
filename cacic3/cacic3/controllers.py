@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from IPy import IP
+import datetime
 
 import cherrypy
 
@@ -239,7 +240,7 @@ class Cacic2:
                         log.debug("Faltou '%s' na solicitação do cliente", i)
                         return "Cliente nao enviou item '" + i + "'"
                 # Como se faz no original, criar o cliente se necessário
-                if self._update.computer(self.set_machine, insert_only=True):
+                if self._update_computer(self.set_machine, insert_only=True):
                     return self.ret_ok
             else:
                 return "Error: get_config requires a parameters"
@@ -289,13 +290,15 @@ class Cacic2:
         Creates a new computer entry if needed.
         """
         # limpa valores desnecessários
+        set_machine['dt_hr_ult_acesso'] = datetime.datetime.now()
         try:
-            computers_table.insert(computers_table.c.te_node_address==set_machine['te_node_address']
-                ).execute(set_machine)
+            computers_table.insert().execute(set_machine)
         except:
             pass
         if not insert_only:
-            computers_table.update(computers_table.c.te_node_address==set_machine['te_node_address']).execute(set_machine)
+            computers_table.update(computers_table.c.te_node_address==set_machine['te_node_address'],
+                computers_table.c.id_so==set_machine['id_so']
+                ).execute(set_machine)
         return True
 
     def _format_set_machine(self, kw):

@@ -61,6 +61,28 @@ class Computadores(Entity):
     has_many('acoes_excecoes', of_kind='AcoesExcecoes')
     using_options(tablename='computadores')
     
+class Redes(Entity):
+    with_fields(
+        id_ip_rede = Field(String(15), nullable=False, primary_key=True),
+        nm_rede = Field(String(100)),
+        te_observacao = Field(String(100)),
+        nm_pessoa_contato1 = Field(String(50)),
+        nm_pessoa_contato2 = Field(String(50)),
+        nu_telefone1 = Field(String(11)),
+        te_email_contato2 = Field(String(50)),
+        nu_telefone2 = Field(String(11)),
+        te_email_contato1 = Field(String(50)),
+        te_serv_cacic = Field(String(45)),
+        te_serv_updates = Field(String(45)),
+        te_path_serv_updates = Field(String(255)),
+        nm_usuario_login_serv_updates = Field(String(20)),
+        te_senha_login_serv_updates = Field(String(20)),
+        nu_porta_serv_updates = Field(String(4)),
+        te_mascara_rede = Field(String(15)),
+        dt_verifica_updates = Field(DateTime),
+    )
+    using_options(tablename='redes')
+
 class Acoes(Entity):
     with_fields(
         id_acao = Field(String(20)),
@@ -80,6 +102,13 @@ class AcoesExcecoes(Entity):
     belongs_to('so', of_kind='So', colname='id_so')
     using_options(tablename='acoes_excecoes')
     
+# need Redes
+#class AcoesRedes(Entity):
+#    belongs_to('acoes', of_kind='Acoes', colname='id_acao')
+#    belongs_to('so', of_kind='So', colname='id_so')
+#    using_options(tablename='acoes_excecoes')
+    
+
 
 #class AcoesRedes(Entity):
 #    id_acao = Field(String(20))

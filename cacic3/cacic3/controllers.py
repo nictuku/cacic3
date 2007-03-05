@@ -55,7 +55,10 @@ class Reports(object):
         if not os_ids:
             os_ids = [x[0] for x in self._get_os_items()]
 
+        # this may be needed
+        # fields = self._get_mandatory_fields () + list(kw['Report Items'])
         fields = self._get_mandatory_fields () + kw['Report Items']
+
         if category == 'hardware':
             items = Computer.select (apply(Computer.c.netaddr.in_, networks))
             items = [item for item in items if str(item.os_id) in os_ids]

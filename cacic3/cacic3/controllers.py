@@ -18,7 +18,7 @@ from turbogears.widgets import TableForm, CheckBoxList, DataGrid
 from cacic3 import json
 from cacic3 import model 
 from cacic3.model import Computer, Hardware, Network, NetworkActions, OpSys
-from cacic3.model import computers_table, descricao_hardware, select, func
+from cacic3.model import descricao_hardware
 from cacic3.model import redes 
 from cacic3.widgets import AjaxMultiSelect
 
@@ -90,7 +90,7 @@ class Reports(object):
             return item[0] * float(100) / total
 
         for field in fields:
-            computer_field = eval ('computers_table.c.%s' % (field))
+            computer_field = eval ('Computer.c.%s' % (field))
             # get total number of rows
             result = select ([func.count (computer_field)],
                              (descricao_hardware.c.nm_campo_tab_hardware == field)).execute ()
@@ -292,12 +292,12 @@ class Cacic2:
         # limpa valores desnecessários
         set_machine['dt_hr_ult_acesso'] = datetime.datetime.now()
         try:
-            computers_table.insert().execute(set_machine)
+            Computer.insert().execute(set_machine)
         except:
             pass
         if not insert_only:
-            computers_table.update(computers_table.c.te_node_address==set_machine['te_node_address'],
-                computers_table.c.id_so==set_machine['id_so']
+            Computer.update(Computer.c.te_node_address==set_machine['te_node_address'],
+                Computer.c.id_so==set_machine['id_so']
                 ).execute(set_machine)
         return True
 
@@ -305,7 +305,7 @@ class Cacic2:
         """Get POST arguments from the request and accept only those 
         values used in the 'computadores' table.
         """
-        set_list = [c.key for c in computers_table.columns]
+        set_list = [c.key for c in Computer.columns]
         set_machine = {}
         for s in set_list:
             set_machine[s] = kw.get(s, '')
@@ -319,7 +319,7 @@ class Root(controllers.RootController, Cacic2):
 
     @expose(template="cacic3.templates.index")
     def index(self):
-        computers = model.computers_table.select()
+        computers = model.Computer.select()
         return dict(computers=computers)
 
     @expose (template="cacic3.templates.test_widgets")

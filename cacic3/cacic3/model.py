@@ -502,7 +502,7 @@ class Visit(Entity):
 class VisitIdentity(Entity):
 
     has_field('visit_key',String,primary_key=True,nullable=False,default=None),
-    has_one('user_id', of_kind="usuarios"),
+    has_one('user_id', of_kind="usuarios", inverse='user_id'),
 
     using_options(tablename='visit_identity')
 
@@ -513,15 +513,17 @@ class Group(Entity):
     has_one('display_name', of_kind='grupo_usuarios', inverse='group'),
     has_one('description', of_kind='grupo_usuarios', inverse='group')
 
-metadata.tables['grupo_usuarios'] = grupo_usuarios
+# still useful?
+# metadata.tables['grupo_usuarios'] = grupo_usuarios.table
 
 class User(Entity):
     has_one('user_id', of_kind='usuarios', inverse='user_id')
-    has_one('user_name', of_kind='usuarios', inverse='nm_usuario')
+    has_one('user_name', of_kind='usuarios', inverse='user_name')
     has_one('display_name', of_kind='usuarios', inverse='display_name')
     has_one('password', of_kind='usuarios', inverse='password')    
 
-metadata.tables['usuarios'] = usuarios
+# still useful?
+# metadata.tables['usuarios'] = usuarios.table
 
 class Permission(object):
     pass

@@ -449,7 +449,10 @@ class usuarios(Entity):
     has_field('dt_log_in',DateTime,primary_key=False,nullable=False,default=datetime.now),
     has_field('id_grupo_usuarios',Integer,primary_key=False,nullable=True,default=None),
 
-    belongs_to('visitidentity', of_kind='VisitIdentity', colname='id_usuario' )
+    belongs_to('user_id', of_kind='VisitIdentity', colname='id_usuario' )
+    belongs_to('user_name', of_kind='VisitIdentity', colname='nm_usuario_acesso' )
+    belongs_to('display_name',  of_kind='VisitIdentity', colname='nm_usuario_completo')
+    belongs_to('password', of_kind='VisitIdentity', colname='te_senha')
     using_options(tablename='usuarios')
 
 class variaveis_ambiente(Entity):
@@ -513,11 +516,10 @@ class Group(Entity):
 metadata.tables['grupo_usuarios'] = grupo_usuarios
 
 class User(Entity):
-
-    has_one('user_id', of_kind='usuarios', inverse='visitidentity')
-    has_one('user_name', of_kind='usuarios', inverse='visitidentity')
-    has_one('display_name', of_kind='usuarios', inverse='visitidentity')
-    has_one('password', of_kind='usuarios', inverse='visitidentity')    
+    has_one('user_id', of_kind='usuarios', inverse='user_id')
+    has_one('user_name', of_kind='usuarios', inverse='nm_usuario')
+    has_one('display_name', of_kind='usuarios', inverse='display_name')
+    has_one('password', of_kind='usuarios', inverse='password')    
 
 metadata.tables['usuarios'] = usuarios
 

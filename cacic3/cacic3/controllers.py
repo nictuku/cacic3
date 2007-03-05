@@ -128,8 +128,8 @@ class Reports(object):
         return items
 
     def _get_os_items(self):
-        items = OpSys.select (OpSys.c.id > 0)
-        return [(str(x.id), str(x.full_name)) for x in items]
+        items = OpSys.select (OpSys.c.id_so > 0)
+        return [(str(x.id_so), str(x.full_name)) for x in items]
 
     def _get_action_from_category(self, category):
         if category == 'hardware':

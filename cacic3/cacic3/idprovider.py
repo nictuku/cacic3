@@ -2,7 +2,7 @@ from turbogears.identity.saprovider import *
 from sqlalchemy import select, func
 from model import usuarios
 
-db = usuarios.engine
+db = usuarios.table.engine
 
 class CacicIdentityProvider(SqlAlchemyIdentityProvider):
     def __init__(self):
